@@ -1,0 +1,137 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+-- Thông số stamina
+local maxStamina = 100
+local stamina = maxStamina
+local sprintSpeed = 22 -- ✅ tốc độ sprint giảm xuống
+local walkSpeed = 16
+local drainRate = 25
+local regenRate = 15
+local isSprinting = false
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "StaminaBarGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Outer Bar
+local outer = Instance.new("Frame")
+outer.Size = UDim2.new(0, 10, 0, 100)
+outer.Position = UDim2.new(0, 20, 1, -140)
+outer.AnchorPoint = Vector2.new(0, 1)
+outer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+outer.BorderSizePixel = 0
+outer.Parent = screenGui
+Instance.new("UICorner", outer).CornerRadius = UDim.new(0, 6)
+
+local outerStroke = Instance.new("UIStroke")
+outerStroke.Thickness = 2
+outerStroke.Color = Color3.fromRGB(0, 0, 0)
+outerStroke.Parent = outer
+
+-- Inner Bar
+local inner = Instance.new("Frame")
+inner.Size = UDim2.new(1, 0, 1, 0)
+inner.BackgroundColor3 = Color3.fromRGB(255, 226, 4)
+inner.BorderSizePixel = 0
+inner.Parent = outer
+Instance.new("UICorner", inner).CornerRadius = UDim.new(0, 6)
+
+local innerStroke = Instance.new("UIStroke")
+innerStroke.Thickness = 1.5
+innerStroke.Color = Color3.fromRGB(0, 0, 0)
+innerStroke.Parent = inner
+
+-- Tween chuyển vị trí thanh
+local function moveToCenter()
+	local tween = TweenService:Create(outer, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {
+		Position = UDim2.new(0.5, -150, 1, -40),
+		Size = UDim2.new(0, 300, 0, 12)
+	})
+	tween:Play()
+end
+
+local function moveToSide()
+	local tween = TweenService:Create(outer, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {
+		Position = UDim2.new(0, 20, 1, -140),
+		Size = UDim2.new(0, 10, 0, 100)
+	})
+	tween:Play()
+end
+
+-- PC Key (Q để chạy)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.Q and stamina > 0 then
+		isSprinting = true
+		moveToCenter()
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.Q then
+		isSprinting = false
+		moveToSide()
+	end
+end)
+
+-- Mobile Button (Hình chữ nhật, bo góc, dịch sang phải)
+local runButton = Instance.new("TextButton")
+runButton.Size = UDim2.new(0, 120, 0, 40)
+runButton.Position = UDim2.new(1, -120, 1, -160) -- ✅ Dịch sang phải
+runButton.AnchorPoint = Vector2.new(0, 1)
+runButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+runButton.Text = "Sprint"
+runButton.TextScaled = true
+runButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+runButton.Font = Enum.Font.GothamBold
+runButton.Visible = UserInputService.TouchEnabled
+runButton.Parent = screenGui
+
+local runUICorner = Instance.new("UICorner", runButton)
+runUICorner.CornerRadius = UDim.new(0, 10)
+
+local runStroke = Instance.new("UIStroke", runButton)
+runStroke.Color = Color3.fromRGB(0, 0, 0)
+runStroke.Thickness = 2
+
+runButton.MouseButton1Down:Connect(function()
+	if stamina > 0 then
+		isSprinting = true
+		moveToCenter()
+	end
+end)
+
+runButton.MouseButton1Up:Connect(function()
+	isSprinting = false
+	moveToSide()
+end)
+
+-- Cập nhật trạng thái chạy/stamina mượt
+RunService.RenderStepped:Connect(function(dt)
+	if isSprinting and stamina > 0 then
+		humanoid.WalkSpeed = sprintSpeed
+		stamina = math.max(0, stamina - drainRate * dt)
+		if stamina == 0 then
+			isSprinting = false
+			moveToSide()
+		end
+	else
+		humanoid.WalkSpeed = walkSpeed
+		if stamina < maxStamina then
+			stamina = math.min(maxStamina, stamina + regenRate * dt)
+		end
+	end
+	inner.Size = UDim2.new(stamina / maxStamina, 0, 1, 0)
+end)
+
+-- Hiển thị mặc định bên góc
+moveToSide()
