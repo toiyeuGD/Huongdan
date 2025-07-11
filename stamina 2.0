@@ -16,6 +16,14 @@ local drainRate = 25
 local regenRate = 15
 local isSprinting = false
 
+local lastSpeed = humanoid.WalkSpeed
+local function updateSpeed(targetSpeed)
+	if lastSpeed ~= targetSpeed then
+		humanoid.WalkSpeed = targetSpeed
+		lastSpeed = targetSpeed
+	end
+end
+
 -- GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "StaminaBarGUI"
@@ -72,7 +80,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 	if input.KeyCode == Enum.KeyCode.Q and stamina > 0 then
 		isSprinting = true
-		humanoid.WalkSpeed = sprintSpeed
+		updateSpeed(sprintSpeed)
 		moveToCenter()
 	end
 end)
@@ -80,12 +88,12 @@ end)
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Q then
 		isSprinting = false
-		humanoid.WalkSpeed = walkSpeed
+		updateSpeed(walkSpeed)
 		moveToSide()
 	end
 end)
 
--- Mobile Button (CHỈ CHỈNH PHẦN NÀY: chữ "Sprint")
+-- Mobile Button
 local runButton = Instance.new("TextButton")
 runButton.Size = UDim2.new(0, 60, 0, 60)
 runButton.Position = UDim2.new(1, -80, 1, -160)
@@ -108,24 +116,24 @@ runStroke.Thickness = 2
 runButton.MouseButton1Down:Connect(function()
 	if stamina > 0 then
 		isSprinting = true
-		humanoid.WalkSpeed = sprintSpeed
+		updateSpeed(sprintSpeed)
 		moveToCenter()
 	end
 end)
 
 runButton.MouseButton1Up:Connect(function()
 	isSprinting = false
-	humanoid.WalkSpeed = walkSpeed
+	updateSpeed(walkSpeed)
 	moveToSide()
 end)
 
--- Update stamina
+-- Update stamina + size thanh
 RunService.RenderStepped:Connect(function(dt)
 	if isSprinting and stamina > 0 then
 		stamina = math.max(0, stamina - drainRate * dt)
 		if stamina == 0 then
 			isSprinting = false
-			humanoid.WalkSpeed = walkSpeed
+			updateSpeed(walkSpeed)
 			moveToSide()
 		end
 	elseif not isSprinting and stamina < maxStamina then
@@ -135,5 +143,6 @@ RunService.RenderStepped:Connect(function(dt)
 	inner.Size = UDim2.new(stamina / maxStamina, 0, 1, 0)
 end)
 
--- Mặc định hiển thị bên góc khi không chạy
+-- Khởi tạo ở vị trí bên góc
 moveToSide()
+updateSpeed(walkSpeed)
