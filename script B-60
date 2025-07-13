@@ -1,0 +1,115 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
+
+local MODEL_ID = "rbxassetid://113514684197066"
+local TEXTURE_ID = "rbxassetid://90286955273492"
+local SOUND_ID = "rbxassetid://132501411663698"
+
+local spawned = false
+
+-- Kiểm tra người chơi có trốn không
+local function isPlayerHiding(player)
+	local character = player.Character
+	if not character then return false end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return false end
+
+	for _, hidingObj in pairs(workspace:GetDescendants()) do
+		if hidingObj:IsA("ProximityPrompt") and hidingObj.ObjectText == "Hide" then
+			local hidingModel = hidingObj:FindFirstAncestorWhichIsA("Model")
+			if hidingModel and (root.Position - hidingModel:GetPivot().Position).Magnitude < 6 then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+-- Rung căn phòng
+local function shakeRoom(room)
+	for _, part in pairs(room:GetDescendants()) do
+		if part:IsA("BasePart") and part.Anchored then
+			local orig = part.Position
+			local tween = TweenService:Create(part, TweenInfo.new(0.1), {Position = orig + Vector3.new(0.3, 0.3, 0)})
+			tween:Play()
+			tween.Completed:Wait()
+			part.Position = orig
+		end
+	end
+end
+
+-- Gây sát thương
+local function damagePlayers(entity)
+	for _, player in pairs(Players:GetPlayers()) do
+		local char = player.Character
+		if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+			local dist = (entity:GetPivot().Position - char.HumanoidRootPart.Position).Magnitude
+			if dist <= 10 and not isPlayerHiding(player) then
+				char.Humanoid.Health = 0
+			end
+		end
+	end
+end
+
+-- Tải và spawn thực thể
+local function spawnB60()
+	if spawned then return end
+	spawned = true
+
+	wait(6) -- Đợi 6 giây
+
+	-- Cảnh báo ánh sáng và âm thanh
+	local oldAmbient = Lighting.Ambient
+	Lighting.Ambient = Color3.fromRGB(200, 50, 0)
+
+	local bell = Instance.new("Sound", workspace)
+	bell.SoundId = SOUND_ID
+	bell.Volume = 3
+	bell:Play()
+
+	-- Load model
+	local model = game:GetObjects(MODEL_ID)[1]
+	if not model then warn("Không thể load B-60") return end
+	model.Name = "B-60"
+	model.PrimaryPart = model:FindFirstChildWhichIsA("BasePart")
+	model.Parent = workspace
+
+	-- Gán texture
+	for _, d in pairs(model:GetDescendants()) do
+		if d:IsA("Decal") or d:IsA("Texture") then
+			d.Texture = TEXTURE_ID
+		end
+	end
+
+	-- Vị trí bắt đầu
+	local startRoom = workspace:FindFirstChild("StartRoom") or workspace:FindFirstChildWhichIsA("Model")
+	local startPos = (startRoom and startRoom:GetPivot().Position or Vector3.new(0, 3, 0)) + Vector3.new(0, 3, 0)
+	model:PivotTo(CFrame.new(startPos))
+
+	-- Di chuyển xuyên từng phòng
+	task.spawn(function()
+		for _, room in pairs(workspace:GetChildren()) do
+			if room:IsA("Model") and room:FindFirstChild("Door") then
+				local goalPos = room:GetPivot().Position + Vector3.new(0, 3, 0)
+				local tween = TweenService:Create(model.PrimaryPart, TweenInfo.new(0.8), {CFrame = CFrame.new(goalPos)})
+				tween:Play()
+				tween.Completed:Wait()
+
+				shakeRoom(room)
+				damagePlayers(model)
+			end
+		end
+
+		-- Xóa entity & reset lighting
+		wait(0.5)
+		model:Destroy()
+		Lighting.Ambient = oldAmbient
+	end)
+end
+
+-- Khởi động spawn
+spawnB60()
